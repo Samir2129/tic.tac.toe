@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tic Tac Toe - AI & Friend</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tic Tac Toe - AI & Friend Mode</title>
   <style>
     :root {
       --bg: #f0f0f0;
@@ -13,7 +13,6 @@
       --hover-bg: #eaeaea;
       --win-color: red;
     }
-
     body.dark {
       --bg: #1a1a1a;
       --text: #eee;
@@ -21,7 +20,6 @@
       --cell-border: #777;
       --hover-bg: #3a3a3a;
     }
-
     body {
       font-family: sans-serif;
       background: var(--bg);
@@ -30,29 +28,24 @@
       margin: 0;
       padding: 0;
     }
-
     h1 {
       margin: 20px 0 10px;
     }
-
     #controls {
       margin: 10px;
     }
-
     select, button {
       padding: 10px;
       margin: 5px;
       font-size: 1rem;
       border-radius: 5px;
     }
-
     #themePanel {
       margin: 10px auto;
       display: flex;
       justify-content: center;
       gap: 10px;
     }
-
     .theme-option {
       width: 30px;
       height: 30px;
@@ -60,7 +53,6 @@
       cursor: pointer;
       border: 2px solid #999;
     }
-
     #score {
       background: var(--board-bg);
       padding: 10px;
@@ -70,12 +62,10 @@
       border-radius: 10px;
       font-size: 1.2rem;
     }
-
     #board-wrapper {
       display: inline-block;
       position: relative;
     }
-
     #board {
       display: grid;
       grid-template-columns: repeat(3, 100px);
@@ -86,7 +76,6 @@
       border-radius: 10px;
       position: relative;
     }
-
     .cell {
       background: var(--board-bg);
       border: 2px solid var(--cell-border);
@@ -97,11 +86,9 @@
       cursor: pointer;
       user-select: none;
     }
-
     .cell:hover {
       background: var(--hover-bg);
     }
-
     #messageBox {
       font-size: 2rem;
       padding: 20px;
@@ -111,17 +98,14 @@
       border-radius: 10px;
       animation: popIn 0.5s ease, pulse 1.5s infinite alternate;
     }
-
     @keyframes popIn {
       0% { transform: scale(0.5); opacity: 0; }
       100% { transform: scale(1); opacity: 1; }
     }
-
     @keyframes pulse {
       0% { transform: scale(1); color: var(--text); }
       100% { transform: scale(1.1); color: var(--win-color); }
     }
-
     .win-line {
       position: absolute;
       height: 5px;
@@ -130,31 +114,24 @@
       z-index: 5;
       border-radius: 5px;
     }
-
     .theme-option[data-color="light"] { background: #f0f0f0; }
     .theme-option[data-color="dark"] { background: #1a1a1a; }
   </style>
 </head>
 <body>
   <h1>Tic Tac Toe 🎮</h1>
-
-  <!-- Sound Effects -->
-  <audio id="winSound" src="win.mp3"></audio>
-  <audio id="loseSound" src="lose.mp3"></audio>
-  <audio id="drawSound" src="draw.mp3"></audio>
-
   <div id="controls">
-    <div id="difficultyContainer">
-      <select id="difficulty">
-        <option value="easy">Easy</option>
-        <option value="moderate">Moderate</option>
-        <option value="hard" selected>Hard</option>
-      </select>
-    </div>
-    <select id="modeSelect" onchange="onModeChange()">
+    <select id="gameMode" onchange="handleGameModeChange()">
       <option value="ai">Play with AI</option>
       <option value="friend">Play with Friend</option>
     </select>
+
+    <select id="difficulty">
+      <option value="easy">Easy</option>
+      <option value="moderate">Moderate</option>
+      <option value="hard" selected>Hard</option>
+    </select>
+
     <button onclick="resetGame()">Reset</button>
     <button onclick="toggleTheme()">Theme</button>
   </div>
@@ -164,7 +141,7 @@
     <div class="theme-option" data-color="dark" onclick="setTheme('dark')"></div>
   </div>
 
-  <div id="score">Player: 0 | AI: 0</div>
+  <div id="score">Player 1: 0 | Player 2 / AI: 0</div>
   <div id="messageBox">Your turn (X)</div>
   <div id="board-wrapper">
     <div id="board"></div>
@@ -175,17 +152,17 @@
     const messageBox = document.getElementById("messageBox");
     const scoreDisplay = document.getElementById("score");
     const difficultySelect = document.getElementById("difficulty");
-    const modeSelect = document.getElementById("modeSelect");
+    const gameModeSelect = document.getElementById("gameMode");
 
     let cells = [];
-    let player = "X";
-    let ai = "O";
-    let currentPlayer = player;
+    let player1 = "X";
+    let player2 = "O";
+    let currentPlayer = player1;
     let gameActive = true;
-    let mode = "ai";
 
-    let playerScore = parseInt(localStorage.getItem("playerScore")) || 0;
-    let aiScore = parseInt(localStorage.getItem("aiScore")) || 0;
+    // Score for player1 and player2 (friend or AI)
+    let player1Score = parseInt(localStorage.getItem("player1Score")) || 0;
+    let player2Score = parseInt(localStorage.getItem("player2Score")) || 0;
 
     const winPatterns = [
       [0,1,2], [3,4,5], [6,7,8],
@@ -194,9 +171,14 @@
     ];
 
     function updateScore() {
-      scoreDisplay.textContent = `Player: ${playerScore} | AI: ${aiScore}`;
-      localStorage.setItem("playerScore", playerScore);
-      localStorage.setItem("aiScore", aiScore);
+      let mode = gameModeSelect.value;
+      if(mode === "friend") {
+        scoreDisplay.textContent = `Player 1: ${player1Score} | Player 2: ${player2Score}`;
+      } else {
+        scoreDisplay.textContent = `Player: ${player1Score} | AI: ${player2Score}`;
+      }
+      localStorage.setItem("player1Score", player1Score);
+      localStorage.setItem("player2Score", player2Score);
     }
 
     function setMessage(msg) {
@@ -220,23 +202,36 @@
     function handleClick(e) {
       const cell = e.target;
       if (!gameActive || cell.textContent !== "") return;
-      cell.textContent = currentPlayer;
-      if (checkWin(currentPlayer)) return endGame(`${currentPlayer} wins!`, currentPlayer === player);
-      if (isDraw()) return endGame("😐 It's a draw!", false);
 
-      if (mode === "ai") {
-        currentPlayer = ai;
-        setMessage("AI thinking...");
-        setTimeout(aiMove, 500);
+      cell.textContent = currentPlayer;
+
+      if (checkWin(currentPlayer)) {
+        endGame(`🎉 ${currentPlayer === player1 ? "Player 1" : (gameModeSelect.value === "friend" ? "Player 2" : "AI")} wins!`, currentPlayer);
+        return;
+      }
+      if (isDraw()) {
+        endGame("😐 It's a draw!", null);
+        return;
+      }
+
+      // Switch turns
+      if (gameModeSelect.value === "friend") {
+        currentPlayer = (currentPlayer === player1) ? player2 : player1;
+        setMessage(`Player ${currentPlayer === player1 ? "1" : "2"}'s turn (${currentPlayer})`);
       } else {
-        currentPlayer = currentPlayer === "X" ? "O" : "X";
-        setMessage(`Your turn (${currentPlayer})`);
+        // Player vs AI
+        if (currentPlayer === player1) {
+          currentPlayer = player2;
+          setMessage("AI thinking...");
+          setTimeout(aiMove, 500);
+        }
       }
     }
 
     function aiMove() {
       const mode = difficultySelect.value;
       let index;
+
       if (mode === "easy") {
         index = randomMove();
       } else if (mode === "moderate") {
@@ -246,13 +241,19 @@
       }
 
       if (index !== null) {
-        cells[index].textContent = ai;
-        if (checkWin(ai)) return endGame("🤖 AI wins!", false);
-        if (isDraw()) return endGame("😐 It's a draw!", false);
+        cells[index].textContent = player2;
+        if (checkWin(player2)) {
+          endGame("🤖 AI wins!", player2);
+          return;
+        }
+        if (isDraw()) {
+          endGame("😐 It's a draw!", null);
+          return;
+        }
       }
 
-      currentPlayer = player;
-      setMessage("Your turn (X)");
+      currentPlayer = player1;
+      setMessage(`Your turn (${player1})`);
     }
 
     function randomMove() {
@@ -263,9 +264,10 @@
     function minimaxMove() {
       let bestScore = -Infinity;
       let move = null;
+
       for (let i = 0; i < 9; i++) {
         if (cells[i].textContent === "") {
-          cells[i].textContent = ai;
+          cells[i].textContent = player2;
           const score = minimax(cells.map(c => c.textContent), 0, false);
           cells[i].textContent = "";
           if (score > bestScore) {
@@ -274,19 +276,20 @@
           }
         }
       }
+
       return move;
     }
 
     function minimax(boardState, depth, isMax) {
-      if (checkWinState(boardState, ai)) return 10 - depth;
-      if (checkWinState(boardState, player)) return depth - 10;
+      if (checkWinState(boardState, player2)) return 10 - depth;
+      if (checkWinState(boardState, player1)) return depth - 10;
       if (!boardState.includes("")) return 0;
 
       if (isMax) {
         let best = -Infinity;
         for (let i = 0; i < 9; i++) {
           if (boardState[i] === "") {
-            boardState[i] = ai;
+            boardState[i] = player2;
             best = Math.max(best, minimax(boardState, depth + 1, false));
             boardState[i] = "";
           }
@@ -296,7 +299,7 @@
         let best = Infinity;
         for (let i = 0; i < 9; i++) {
           if (boardState[i] === "") {
-            boardState[i] = player;
+            boardState[i] = player1;
             best = Math.min(best, minimax(boardState, depth + 1, true));
             boardState[i] = "";
           }
@@ -345,36 +348,25 @@
       return cells.every(c => c.textContent !== "");
     }
 
-    function endGame(msg, playerWon) {
+    // Here fix scoring on game end
+    function endGame(msg, winner) {
       gameActive = false;
       setMessage(msg);
 
-      if (mode === "ai") {
-        if (playerWon) {
-          playerScore++;
-          document.getElementById("winSound").play();
-        } else if (msg.includes("AI wins")) {
-          aiScore++;
-          document.getElementById("loseSound").play();
-        } else {
-          document.getElementById("drawSound").play();
-        }
-        updateScore();
-      } else {
-        if (msg.includes("draw")) {
-          document.getElementById("drawSound").play();
-        } else {
-          document.getElementById("winSound").play();
-        }
+      if (winner === player1) {
+        player1Score++;
+      } else if (winner === player2) {
+        player2Score++;
       }
+      updateScore();
 
       setTimeout(resetGame, 2500);
     }
 
     function resetGame() {
       gameActive = true;
-      currentPlayer = "X";
-      setMessage("Your turn (X)");
+      currentPlayer = player1;
+      setMessage(`Player 1's turn (${player1})`);
       createBoard();
     }
 
@@ -395,16 +387,23 @@
       }
     }
 
-    function onModeChange() {
-      mode = modeSelect.value;
-      document.getElementById("difficultyContainer").style.display = (mode === "ai") ? "inline-block" : "none";
+    function handleGameModeChange() {
+      if(gameModeSelect.value === "friend") {
+        difficultySelect.style.display = "none";
+        setMessage(`Player 1's turn (${player1})`);
+      } else {
+        difficultySelect.style.display = "inline-block";
+        setMessage(`Your turn (${player1})`);
+      }
       resetGame();
+      updateScore();
     }
 
+    // Initial setup
     applyTheme();
     updateScore();
+    handleGameModeChange();
     createBoard();
-    onModeChange();
   </script>
 </body>
 </html>
