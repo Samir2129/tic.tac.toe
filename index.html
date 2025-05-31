@@ -1,153 +1,22 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Online Tic Tac Toe</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background: #f5f5f5;
-      color: #333;
-    }
-    h1 { margin-top: 20px; }
-    #board {
-      display: grid;
-      grid-template-columns: repeat(3, 100px);
-      grid-gap: 5px;
-      justify-content: center;
-      margin: 20px auto;
-    }
-    .cell {
-      width: 100px;
-      height: 100px;
-      background: #fff;
-      border: 2px solid #000;
-      font-size: 2.5rem;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      cursor: pointer;
-    }
-    #status { margin: 10px; font-size: 1.2rem; }
-    #gameControls { margin: 20px; }
-  </style>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic Tac Toe Online</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>Online Tic Tac Toe</h1>
-  <div id="gameControls">
-    <button onclick="createGame()">Create Game</button>
-    <input type="text" id="gameIdInput" placeholder="Enter Game Code" />
-    <button onclick="joinGame()">Join Game</button>
+  <h1>Tic Tac Toe</h1>
+  <div id="game-board"></div>
+
+  <div class="footer">
+    <button onclick="location.reload()">Home</button>
+    <button onclick="shareGame()">Share</button>
+    <button onclick="inviteFriend()">Invite Your Friend</button>
   </div>
-  <div id="status">Status: Not connected</div>
-  <div id="board"></div>
 
-  <script>
-    // 🔥 Replace this with your Firebase config
-    const firebaseConfig = {
-  apiKey: "AIzaSyCqMkvEI81gzpqgcQ1i-8yyO-vm7j4pjaY",
-  authDomain: "tic-tac-toe-5a808.firebaseapp.com",
-  projectId: "tic-tac-toe-5a808",
-  storageBucket: "tic-tac-toe-5a808.firebasestorage.app",
-  messagingSenderId: "502400629639",
-  appId: "1:502400629639:web:580bdd301f26f2f215b122",
-  measurementId: "G-DD2PD881RM"
-};
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    const boardEl = document.getElementById('board');
-    const statusEl = document.getElementById('status');
-    const gameIdInput = document.getElementById('gameIdInput');
-
-    let gameId = null;
-    let player = null;
-    let currentTurn = 'X';
-
-    const cells = [];
-
-    function createBoard() {
-      boardEl.innerHTML = '';
-      for (let i = 0; i < 9; i++) {
-        const cell = document.createElement('div');
-        cell.className = 'cell';
-        cell.dataset.index = i;
-        cell.onclick = () => handleCellClick(i);
-        cells[i] = cell;
-        boardEl.appendChild(cell);
-      }
-    }
-
-    function createGame() {
-      gameId = Math.random().toString(36).substr(2, 6);
-      player = 'X';
-      db.ref('games/' + gameId).set({
-        board: Array(9).fill(''),
-        turn: 'X'
-      });
-      listenToGame(gameId);
-      statusEl.innerText = `Game Code: ${gameId} (You are X)`;
-      createBoard();
-    }
-
-    function joinGame() {
-      const inputId = gameIdInput.value.trim();
-      if (!inputId) return alert('Enter a game code!');
-      gameId = inputId;
-      player = 'O';
-      listenToGame(gameId);
-      statusEl.innerText = `Joined game ${gameId} (You are O)`;
-      createBoard();
-    }
-
-    function listenToGame(id) {
-      db.ref('games/' + id).on('value', snapshot => {
-        const data = snapshot.val();
-        if (!data) return;
-
-        currentTurn = data.turn;
-        for (let i = 0; i < 9; i++) {
-          cells[i].innerText = data.board[i];
-        }
-
-        if (checkWinner(data.board)) {
-          statusEl.innerText = `${checkWinner(data.board)} wins!`;
-        } else if (data.board.every(c => c)) {
-          statusEl.innerText = "Draw!";
-        } else {
-          statusEl.innerText = `${data.turn}'s turn`;
-        }
-      });
-    }
-
-    function handleCellClick(index) {
-      if (!gameId || !player) return;
-      db.ref('games/' + gameId).once('value').then(snapshot => {
-        const data = snapshot.val();
-        if (!data || data.board[index] || data.turn !== player) return;
-
-        data.board[index] = player;
-        data.turn = player === 'X' ? 'O' : 'X';
-
-        db.ref('games/' + gameId).set(data);
-      });
-    }
-
-    function checkWinner(b) {
-      const wins = [
-        [0,1,2], [3,4,5], [6,7,8],
-        [0,3,6], [1,4,7], [2,5,8],
-        [0,4,8], [2,4,6]
-      ];
-      for (const [a, b1, c] of wins) {
-        if (b[a] && b[a] === b[b1] && b[a] === b[c]) return b[a];
-      }
-      return null;
-    }
-  </script>
+  <!-- Import your main JS file -->
+  <script type="module" src="main.js"></script>
 </body>
 </html>
