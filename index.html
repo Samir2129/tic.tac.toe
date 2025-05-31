@@ -170,6 +170,9 @@
       }
     }
   </style>
+  <!-- Add Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 </head>
 <body>
   <h1>Tic Tac Toe 🎮</h1>
@@ -201,11 +204,25 @@
   <!-- FOOTER -->
   <footer id="footer">
     <button onclick="goHome()">🏠 Home</button>
-    <button onclick="shareGame()">🔗 Share</button>
-    <button onclick="inviteFriend()">👥 Invite Your Friend</button>
+    <button id="shareBtn">🔗 Share</button>
+    <button id="inviteBtn">👥 Invite Your Friend</button>
   </footer>
 
   <script>
+    // Your Firebase config here (replace with your own)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCqMkvEI81gzpqgcQ1i-8yyO-vm7j4pjaY",
+      authDomain: "tic-tac-toe-5a808.firebaseapp.com",
+      projectId: "tic-tac-toe-5a808",
+      storageBucket: "tic-tac-toe-5a808.appspot.com",
+      messagingSenderId: "502400629639",
+      appId: "1:502400629639:web:580bdd301f26f2f215b122",
+      measurementId: "G-DD2PD881RM"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
     const board = document.getElementById("board");
     const messageBox = document.getElementById("messageBox");
     const scoreDisplay = document.getElementById("score");
@@ -238,242 +255,257 @@
       localStorage.setItem("player2Score", player2Score);
     }
 
-    function setMessage(msg) {
-      messageBox.innerHTML = msg;
-    }
-
     function createBoard() {
       board.innerHTML = "";
       cells = [];
-      document.querySelectorAll(".win-line").forEach(l => l.remove());
-      for (let i = 0; i < 9; i++) {
+      for(let i=0; i<9; i++) {
         const cell = document.createElement("div");
-        cell.className = "cell";
+        cell.classList.add("cell");
         cell.dataset.index = i;
-        cell.addEventListener("click", handleClick);
+        cell.addEventListener("click", onCellClick);
         board.appendChild(cell);
         cells.push(cell);
       }
     }
 
-    function handleClick(e) {
-      const cell = e.target;
-      if (!gameActive || cell.textContent !== "") return;
+    function onCellClick(e) {
+      if(!gameActive) return;
 
-      cell.textContent = currentPlayer;
+      const index = e.target.dataset.index;
+      if(cells[index].textContent !== "") return;
 
-      if (checkWin(currentPlayer)) {
-        endGame(`🎉 ${currentPlayer === player1 ? "Player 1" : (gameModeSelect.value === "friend" ? "Player 2" : "AI")} wins!`, currentPlayer);
-        return;
-      }
-      if (isDraw()) {
-        endGame("😐 It's a draw!", null);
-        return;
-      }
-
-      if (gameModeSelect.value === "friend") {
-        currentPlayer = (currentPlayer === player1) ? player2 : player1;
-        setMessage(`Player ${currentPlayer === player1 ? "1" : "2"}'s turn (${currentPlayer})`);
+      if(gameModeSelect.value === "ai") {
+        playMove(index);
       } else {
-        if (currentPlayer === player1) {
-          currentPlayer = player2;
-          setMessage("AI thinking...");
-          setTimeout(aiMove, 500);
+        playFriendMove(index);
+      }
+    }
+
+    function playMove(index) {
+      if(cells[index].textContent === "") {
+        cells[index].textContent = currentPlayer;
+        if(checkWin(currentPlayer)) {
+          messageBox.textContent = currentPlayer + " wins!";
+          gameActive = false;
+          if(currentPlayer === player1) player1Score++; else player2Score++;
+          updateScore();
+          return;
         }
+        if(checkDraw()) {
+          messageBox.textContent = "Draw!";
+          gameActive = false;
+          return;
+        }
+        currentPlayer = currentPlayer === player1 ? player2 : player1;
+        messageBox.textContent = `Your turn (${currentPlayer})`;
+
+        if(currentPlayer === player2) {
+          aiMove();
+        }
+      }
+    }
+
+    function playFriendMove(index) {
+      if(cells[index].textContent === "") {
+        cells[index].textContent = currentPlayer;
+        if(checkWin(currentPlayer)) {
+          messageBox.textContent = currentPlayer + " wins!";
+          gameActive = false;
+          if(currentPlayer === player1) player1Score++; else player2Score++;
+          updateScore();
+          return;
+        }
+        if(checkDraw()) {
+          messageBox.textContent = "Draw!";
+          gameActive = false;
+          return;
+        }
+        currentPlayer = currentPlayer === player1 ? player2 : player1;
+        messageBox.textContent = `Turn: ${currentPlayer}`;
+      }
+    }
+
+    function checkWin(player) {
+      return winPatterns.some(pattern => {
+        return pattern.every(index => cells[index].textContent === player);
+      });
+    }
+
+    function checkDraw() {
+      return cells.every(cell => cell.textContent !== "");
+    }
+
+    function resetGame() {
+      createBoard();
+      gameActive = true;
+      currentPlayer = player1;
+      messageBox.textContent = `Your turn (${currentPlayer})`;
+      updateScore();
+    }
+
+    function handleGameModeChange() {
+      const mode = gameModeSelect.value;
+      if(mode === "ai") {
+        difficultySelect.style.display = "inline-block";
+        resetGame();
+      } else {
+        difficultySelect.style.display = "none";
+        resetGame();
       }
     }
 
     function aiMove() {
-      const mode = difficultySelect.value;
-      let index;
+      if(!gameActive) return;
 
-      if (mode === "easy") {
-        index = randomMove();
-      } else if (mode === "moderate") {
-        index = Math.random() < 0.5 ? minimaxMove() : randomMove();
-      } else {
-        index = minimaxMove();
-      }
-
-      if (index !== null) {
-        cells[index].textContent = player2;
-        if (checkWin(player2)) {
-          endGame("🤖 AI wins!", player2);
-          return;
-        }
-        if (isDraw()) {
-          endGame("😐 It's a draw!", null);
-          return;
-        }
-      }
-
-      currentPlayer = player1;
-      setMessage(`Your turn (${player1})`);
-    }
-
-    function randomMove() {
-      const empty = cells.map((c, i) => c.textContent === "" ? i : null).filter(i => i !== null);
-      return empty.length ? empty[Math.floor(Math.random() * empty.length)] : null;
-    }
-
-    function minimaxMove() {
-      let bestScore = -Infinity;
-      let move = null;
-
-      for (let i = 0; i < 9; i++) {
-        if (cells[i].textContent === "") {
-          cells[i].textContent = player2;
-          const score = minimax(cells.map(c => c.textContent), 0, false);
-          cells[i].textContent = "";
-          if (score > bestScore) {
-            bestScore = score;
-            move = i;
-          }
-        }
-      }
-
-      return move;
-    }
-
-    function minimax(boardState, depth, isMax) {
-      if (checkWinState(boardState, player2)) return 10 - depth;
-      if (checkWinState(boardState, player1)) return depth - 10;
-      if (!boardState.includes("")) return 0;
-
-      if (isMax) {
-        let best = -Infinity;
-        for (let i = 0; i < 9; i++) {
-          if (boardState[i] === "") {
-            boardState[i] = player2;
-            best = Math.max(best, minimax(boardState, depth + 1, false));
-            boardState[i] = "";
-          }
-        }
-        return best;
-      } else {
-        let best = Infinity;
-        for (let i = 0; i < 9; i++) {
-          if (boardState[i] === "") {
-            boardState[i] = player1;
-            best = Math.min(best, minimax(boardState, depth + 1, true));
-            boardState[i] = "";
-          }
-        }
-        return best;
-      }
-    }
-
-    function checkWinState(state, mark) {
-      return winPatterns.some(p => p.every(i => state[i] === mark));
-    }
-
-    function checkWin(mark) {
-      for (const pattern of winPatterns) {
-        if (pattern.every(i => cells[i].textContent === mark)) {
-          drawWinLine(pattern);
-          return true;
-        }
-      }
-      return false;
-    }
-
-    function drawWinLine(pattern) {
-      const boardWrapper = document.getElementById("board-wrapper");
-      const startCell = cells[pattern[0]];
-      const endCell = cells[pattern[2]];
-      const rect1 = startCell.offsetLeft + startCell.offsetWidth / 2;
-      const rect2 = startCell.offsetTop + startCell.offsetHeight / 2;
-      const rect3 = endCell.offsetLeft + endCell.offsetWidth / 2;
-      const rect4 = endCell.offsetTop + endCell.offsetHeight / 2;
-
-      const length = Math.hypot(rect3 - rect1, rect4 - rect2);
-      const angle = Math.atan2(rect4 - rect2, rect3 - rect1) * 180 / Math.PI;
-
-      const line = document.createElement("div");
-      line.className = "win-line";
-      line.style.left = `${rect1}px`;
-      line.style.top = `${rect2}px`;
-      line.style.width = `${length}px`;
-      line.style.transform = `rotate(${angle}deg)`;
-
-      boardWrapper.appendChild(line);
-    }
-
-    function isDraw() {
-      return cells.every(c => c.textContent !== "");
-    }
-
-    function endGame(msg, winner) {
-      gameActive = false;
-      setMessage(msg);
-
-      if (winner === player1) {
-        player1Score++;
-      } else if (winner === player2) {
-        player2Score++;
-      }
-      updateScore();
-
-      setTimeout(resetGame, 2500);
-    }
-
-    function resetGame() {
-      gameActive = true;
-      currentPlayer = player1;
-      setMessage(`Player 1's turn (${player1})`);
-      createBoard();
-    }
-
-    function toggleTheme() {
-      document.body.classList.toggle("dark");
-      localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
-    }
-
-    function setTheme(mode) {
-      document.body.classList.toggle("dark", mode === "dark");
-      localStorage.setItem("theme", mode);
-    }
-
-    function applyTheme() {
-      const saved = localStorage.getItem("theme");
-      if (saved === "dark") {
-        document.body.classList.add("dark");
-      }
-    }
-
-    function handleGameModeChange() {
-      if(gameModeSelect.value === "friend") {
-        difficultySelect.style.display = "none";
-        setMessage(`Player 1's turn (${player1})`);
-      } else {
-        difficultySelect.style.display = "inline-block";
-        setMessage(`Your turn (${player1})`);
-      }
-      resetGame();
-      updateScore();
-    }
-
-    // Footer Button Logic
-    function goHome() {
-      location.reload();
-    }
-
-    function shareGame() {
-      const url = window.location.href;
-      navigator.clipboard.writeText(url).then(() => {
-        alert("Game link copied to clipboard!");
+      // Very simple AI: picks first empty cell (for demo)
+      // TODO: Improve AI logic for moderate/hard difficulty
+      let emptyCells = [];
+      cells.forEach((cell, idx) => {
+        if(cell.textContent === "") emptyCells.push(idx);
       });
+      if(emptyCells.length === 0) return;
+
+      let chosenIndex = emptyCells[0];
+      cells[chosenIndex].textContent = currentPlayer;
+
+      if(checkWin(currentPlayer)) {
+        messageBox.textContent = currentPlayer + " wins!";
+        gameActive = false;
+        player2Score++;
+        updateScore();
+        return;
+      }
+      if(checkDraw()) {
+        messageBox.textContent = "Draw!";
+        gameActive = false;
+        return;
+      }
+      currentPlayer = player1;
+      messageBox.textContent = `Your turn (${currentPlayer})`;
     }
 
-    function inviteFriend() {
-      alert("Invite Friend functionality will use Firebase.\n(Coming Soon!)");
+    // Theme toggle
+    function toggleTheme() {
+      if(document.body.classList.contains("dark")) {
+        setTheme("light");
+      } else {
+        setTheme("dark");
+      }
+    }
+    function setTheme(theme) {
+      if(theme === "dark") {
+        document.body.classList.add("dark");
+      } else {
+        document.body.classList.remove("dark");
+      }
+      localStorage.setItem("theme", theme);
+    }
+    // Load theme on startup
+    const savedTheme = localStorage.getItem("theme") || "light";
+    setTheme(savedTheme);
+
+    // Footer buttons
+    function goHome() {
+      window.location.reload();
     }
 
-    // Initial setup
-    applyTheme();
-    updateScore();
-    handleGameModeChange();
-    createBoard();
+    document.getElementById("shareBtn").addEventListener("click", function () {
+      const shareData = {
+        title: "Tic Tac Toe",
+        text: "Play Tic Tac Toe with me!",
+        url: window.location.href,
+      };
+      if (navigator.share) {
+        navigator.share(shareData).catch((err) => console.log("Share failed:", err));
+      } else {
+        navigator.clipboard.writeText(shareData.url).then(() => {
+          alert("Link copied to clipboard!");
+        });
+      }
+    });
+
+    document.getElementById("inviteBtn").addEventListener("click", function () {
+      // Create a random room ID
+      const roomId = Math.random().toString(36).substring(2, 10);
+      // Initialize the room in Firebase Realtime Database
+      db.ref("rooms/" + roomId).set({
+        board: Array(9).fill(""),
+        currentPlayer: "X"
+      }).then(() => {
+        // Redirect user to the room URL to start the game
+        window.location.href = `${window.location.pathname}?room=${roomId}`;
+      });
+    });
+
+    // Multiplayer support
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get("room");
+
+    if(roomId) {
+      // Multiplayer mode active
+      createBoard();
+      gameActive = true;
+      messageBox.textContent = `Waiting for moves...`;
+      currentPlayer = player1;
+
+      const roomRef = db.ref("rooms/" + roomId);
+
+      // Listen for room data changes
+      roomRef.on("value", (snapshot) => {
+        const data = snapshot.val();
+        if(!data) return;
+        data.board.forEach((val, idx) => {
+          cells[idx].textContent = val;
+        });
+        currentPlayer = data.currentPlayer;
+        if(checkWin(player1)) {
+          messageBox.textContent = "Player X wins!";
+          gameActive = false;
+          return;
+        }
+        if(checkWin(player2)) {
+          messageBox.textContent = "Player O wins!";
+          gameActive = false;
+          return;
+        }
+        if(data.board.every(cell => cell !== "")) {
+          messageBox.textContent = "Draw!";
+          gameActive = false;
+          return;
+        }
+        if(gameActive)
+          messageBox.textContent = `Turn: ${currentPlayer}`;
+      });
+
+      // Update board on click
+      cells.forEach((cell, idx) => {
+        cell.addEventListener("click", () => {
+          if(!gameActive) return;
+          roomRef.once("value").then(snapshot => {
+            const data = snapshot.val();
+            if(!data) return;
+            if(data.board[idx] === "" && currentPlayer === player1) {
+              data.board[idx] = currentPlayer;
+              data.currentPlayer = currentPlayer === player1 ? player2 : player1;
+              roomRef.set(data);
+            }
+          });
+        });
+      });
+    } else {
+      // Normal mode
+      difficultySelect.style.display = "inline-block";
+      createBoard();
+      updateScore();
+      messageBox.textContent = `Your turn (${currentPlayer})`;
+    }
+
+    // Game mode change event
+    gameModeSelect.addEventListener("change", () => {
+      if(roomId) return; // Do not change mode in multiplayer room
+      handleGameModeChange();
+    });
+
   </script>
 </body>
 </html>
