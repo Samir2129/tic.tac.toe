@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic Tac Toe - AI Modes</title>
+  <style>
+    :root {
+      --bg: #f0f0f0;
+      --text: #000;
+      --board-bg: #fff;
+      --cell-border: #333;
+      --hover-bg: #eaeaea;
+      --win-color: red;
+    }
+
+    body.dark {
+      --bg: #1a1a1a;
+      --text: #eee;
+      --board-bg: #2c2c2c;
+      --cell-border: #777;
+      --hover-bg: #3a3a3a;
+    }
+
+    body {
+      font-family: sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1 {
+      margin: 20px 0 10px;
+    }
+
+    #controls {
+      margin: 10px;
+    }
+
+    select, button {
+      padding: 10px;
+      margin: 5px;
+      font-size: 1rem;
+      border-radius: 5px;
+    }
+
+    #themePanel {
+      margin: 10px auto;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .theme-option {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid #999;
+    }
+
+    #score {
+      background: var(--board-bg);
+      padding: 10px;
+      margin: 10px auto;
+      max-width: 300px;
+      border: 2px solid var(--cell-border);
+      border-radius: 10px;
+      font-size: 1.2rem;
+    }
+
+    #board-wrapper {
+      display: inline-block;
+      position: relative;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 5px;
+      background: var(--bg);
+      padding: 5px;
+      border-radius: 10px;
+      position: relative;
+    }
+
+    .cell {
+      background: var(--board-bg);
+      border: 2px solid var(--cell-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .cell:hover {
+      background: var(--hover-bg);
+    }
+
+    #messageBox {
+      font-size: 2rem;
+      padding: 20px;
+      margin: 20px auto;
+      max-width: 300px;
+      border: 3px dashed var(--text);
+      border-radius: 10px;
+      animation: popIn 0.5s ease, pulse 1.5s infinite alternate;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); color: var(--text); }
+      100% { transform: scale(1.1); color: var(--win-color); }
+    }
+
+    .win-line {
+      position: absolute;
+      height: 5px;
+      background-color: var(--win-color);
+      transform-origin: left center;
+      z-index: 5;
+      border-radius: 5px;
+    }
+
+    .theme-option[data-color="light"] { background: #f0f0f0; }
+    .theme-option[data-color="dark"] { background: #1a1a1a; }
+  </style>
+</head>
+<body>
+  <h1>Tic Tac Toe 🎮</h1>
+  <div id="controls">
+    <select id="difficulty">
+      <option value="easy">Easy</option>
+      <option value="moderate">Moderate</option>
+      <option value="hard" selected>Hard</option>
+    </select>
+    <button onclick="resetGame()">Reset</button>
+    <button onclick="toggleTheme()">Toggle Theme</button>
+  </div>
+
+  <div id="themePanel">
+    <div class="theme-option" data-color="light" onclick="setTheme('light')"></div>
+    <div class="theme-option" data-color="dark" onclick="setTheme('dark')"></div>
+  </div>
+
+  <div id="score">Player: 0 | AI: 0</div>
+  <div id="messageBox">Your turn (X)</div>
+  <div id="board-wrapper">
+    <div id="board"></div>
+  </div>
+
+  <script>
+    const board = document.getElementById("board");
+    const messageBox = document.getElementById("messageBox");
+    const scoreDisplay = document.getElementById("score");
+    const difficultySelect = document.getElementById("difficulty");
+
+    let cells = [];
+    let player = "X";
+    let ai = "O";
+    let currentPlayer = player;
+    let gameActive = true;
+
+    let playerScore = parseInt(localStorage.getItem("playerScore")) || 0;
+    let aiScore = parseInt(localStorage.getItem("aiScore")) || 0;
+
+    const winPatterns = [
+      [0,1,2], [3,4,5], [6,7,8],
+      [0,3,6], [1,4,7], [2,5,8],
+      [0,4,8], [2,4,6]
+    ];
+
+    function updateScore() {
+      scoreDisplay.textContent = `Player: ${playerScore} | AI: ${aiScore}`;
+      localStorage.setItem("playerScore", playerScore);
+      localStorage.setItem("aiScore", aiScore);
+    }
+
+    function setMessage(msg) {
+      messageBox.innerHTML = msg;
+    }
+
+    function createBoard() {
+      board.innerHTML = "";
+      cells = [];
+      document.querySelectorAll(".win-line").forEach(l => l.remove());
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.dataset.index = i;
+        cell.addEventListener("click", handleClick);
+        board.appendChild(cell);
+        cells.push(cell);
+      }
+    }
+
+    function handleClick(e) {
+      const cell = e.target;
+      if (!gameActive || cell.textContent !== "") return;
+      cell.textContent = player;
+      if (checkWin(player)) return endGame("🎉 You win!", true);
+      if (isDraw()) return endGame("😐 It's a draw!", false);
+      currentPlayer = ai;
+      setMessage("AI thinking...");
+      setTimeout(aiMove, 500);
+    }
+
+    function aiMove() {
+      const mode = difficultySelect.value;
+      let index;
+
+      if (mode === "easy") {
+        index = randomMove();
+      } else if (mode === "moderate") {
+        index = Math.random() < 0.5 ? minimaxMove() : randomMove();
+      } else {
+        index = minimaxMove();
+      }
+
+      if (index !== null) {
+        cells[index].textContent = ai;
+        if (checkWin(ai)) return endGame("🤖 AI wins!", false);
+        if (isDraw()) return endGame("😐 It's a draw!", false);
+      }
+
+      currentPlayer = player;
+      setMessage("Your turn (X)");
+    }
+
+    function randomMove() {
+      const empty = cells.map((c, i) => c.textContent === "" ? i : null).filter(i => i !== null);
+      return empty.length ? empty[Math.floor(Math.random() * empty.length)] : null;
+    }
+
+    function minimaxMove() {
+      let bestScore = -Infinity;
+      let move = null;
+
+      for (let i = 0; i < 9; i++) {
+        if (cells[i].textContent === "") {
+          cells[i].textContent = ai;
+          const score = minimax(cells.map(c => c.textContent), 0, false);
+          cells[i].textContent = "";
+          if (score > bestScore) {
+            bestScore = score;
+            move = i;
+          }
+        }
+      }
+
+      return move;
+    }
+
+    function minimax(boardState, depth, isMax) {
+      if (checkWinState(boardState, ai)) return 10 - depth;
+      if (checkWinState(boardState, player)) return depth - 10;
+      if (!boardState.includes("")) return 0;
+
+      if (isMax) {
+        let best = -Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (boardState[i] === "") {
+            boardState[i] = ai;
+            best = Math.max(best, minimax(boardState, depth + 1, false));
+            boardState[i] = "";
+          }
+        }
+        return best;
+      } else {
+        let best = Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (boardState[i] === "") {
+            boardState[i] = player;
+            best = Math.min(best, minimax(boardState, depth + 1, true));
+            boardState[i] = "";
+          }
+        }
+        return best;
+      }
+    }
+
+    function checkWinState(state, mark) {
+      return winPatterns.some(p => p.every(i => state[i] === mark));
+    }
+
+    function checkWin(mark) {
+      for (const pattern of winPatterns) {
+        if (pattern.every(i => cells[i].textContent === mark)) {
+          drawWinLine(pattern);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function drawWinLine(pattern) {
+      const boardWrapper = document.getElementById("board-wrapper");
+      const startCell = cells[pattern[0]];
+      const endCell = cells[pattern[2]];
+      const rect1 = startCell.offsetLeft + startCell.offsetWidth / 2;
+      const rect2 = startCell.offsetTop + startCell.offsetHeight / 2;
+      const rect3 = endCell.offsetLeft + endCell.offsetWidth / 2;
+      const rect4 = endCell.offsetTop + endCell.offsetHeight / 2;
+
+      const length = Math.hypot(rect3 - rect1, rect4 - rect2);
+      const angle = Math.atan2(rect4 - rect2, rect3 - rect1) * 180 / Math.PI;
+
+      const line = document.createElement("div");
+      line.className = "win-line";
+      line.style.left = `${rect1}px`;
+      line.style.top = `${rect2}px`;
+      line.style.width = `${length}px`;
+      line.style.transform = `rotate(${angle}deg)`;
+
+      boardWrapper.appendChild(line);
+    }
+
+    function isDraw() {
+      return cells.every(c => c.textContent !== "");
+    }
+
+    function endGame(msg, playerWon) {
+      gameActive = false;
+      setMessage(msg);
+      if (playerWon) playerScore++; else if (msg.includes("wins")) aiScore++;
+      updateScore();
+      setTimeout(resetGame, 2500);
+    }
+
+    function resetGame() {
+      gameActive = true;
+      setMessage("Your turn (X)");
+      createBoard();
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle("dark");
+      localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
+    }
+
+    function setTheme(mode) {
+      document.body.classList.toggle("dark", mode === "dark");
+      localStorage.setItem("theme", mode);
+    }
+
+    function applyTheme() {
+      const saved = localStorage.getItem("theme");
+      if (saved === "dark") {
+        document.body.classList.add("dark");
+      }
+    }
+
+    applyTheme();
+    updateScore();
+    createBoard();
+  </script>
+</body>
+</html>
